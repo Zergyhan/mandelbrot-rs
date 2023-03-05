@@ -96,6 +96,7 @@ fn main() {
                         mandelbrot.width = size.width;
                         mandelbrot.height = size.height;
                         mandelbrot.changed = true;
+                        mandelbrot.resized = true;
                         println!("Resized to {}x{}", size.width, size.height)
                     }
                     Err(_) => {
@@ -126,6 +127,7 @@ struct Mandelbrot {
     height: u32,
     cache: Vec<f64>,
     changed: bool,
+    resized: bool,
 }
 
 impl Mandelbrot {
@@ -138,6 +140,7 @@ impl Mandelbrot {
             height,
             cache: Vec::new(),
             changed: true,
+            resized: true,
         }
     }
     fn draw(&mut self, screen: &mut [u8]) {
@@ -159,7 +162,12 @@ impl Mandelbrot {
     }
     fn update(&mut self) {
         let ratio = self.width as f64 / self.height as f64;
-        self.cache.clear();
+        if self.resized {
+            self.cache.clear();
+            self.cache.resize((self.width * self.height) as usize, 0.0);
+            self.resized = false;
+        }
+        let mut i = 0;
         for y in 0..self.height {
             for x in 0..self.width {
                 let c = Complex::new(
@@ -167,7 +175,8 @@ impl Mandelbrot {
                     (y as f64 / self.height as f64 - 0.5) * self.zoom + self.offset.im,
                 );
                 let colour_slider = iterate_mandelbrot_point(c, self.max_iterations);
-                self.caczhe.push(colour_slider);
+                self.cache[i] = colour_slider;
+                i += 1;
             }
         }
         self.changed = false;
