@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use rayon::prelude::*;
 use log::error;
 use num::complex::Complex;
 use pixels::{Pixels, SurfaceTexture};
@@ -45,7 +46,7 @@ fn main() {
         Pixels::new(WIDTH, HEIGHT, surface_texture).unwrap()
     };
 
-    let mut mandelbrot = Mandelbrot::new(100,WIDTH, HEIGHT);
+    let mut mandelbrot = Mandelbrot::new(200,WIDTH, HEIGHT);
 
 
     event_loop.run(move |event, _, control_flow| {
@@ -86,6 +87,16 @@ fn main() {
 
             if input.key_pressed(winit::event::VirtualKeyCode::D){
                 mandelbrot.offset.re += 0.05 * mandelbrot.zoom;
+                mandelbrot.changed = true;
+            }
+
+            // Zoom
+            if input.key_pressed(winit::event::VirtualKeyCode::R) {
+                mandelbrot.zoom /= 2.0;
+                mandelbrot.changed = true;
+            }
+            if input.key_pressed(winit::event::VirtualKeyCode::F) {
+                mandelbrot.zoom *= 2.0;
                 mandelbrot.changed = true;
             }
 
@@ -167,18 +178,15 @@ impl Mandelbrot {
             self.cache.resize((self.width * self.height) as usize, 0.0);
             self.resized = false;
         }
-        let mut i = 0;
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let c = Complex::new(
-                    (x as f64 / self.width as f64 - 0.5) * ratio * self.zoom + self.offset.re,
-                    (y as f64 / self.height as f64 - 0.5) * self.zoom + self.offset.im,
-                );
-                let colour_slider = iterate_mandelbrot_point(c, self.max_iterations);
-                self.cache[i] = colour_slider;
-                i += 1;
-            }
-        }
+        (0..self.width*self.height).into_par_iter().map(|i| {
+            let x = i % self.width;
+            let y = i / self.width;
+            let c = Complex::new(
+                (x as f64 / self.width as f64 - 0.5) * ratio * self.zoom + self.offset.re,
+                (y as f64 / self.height as f64 - 0.5) * self.zoom + self.offset.im,
+            );
+            iterate_mandelbrot_point(c, self.max_iterations)
+        }).collect_into_vec(&mut self.cache);
         self.changed = false;
     }
 }
